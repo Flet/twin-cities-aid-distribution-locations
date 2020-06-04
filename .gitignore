@@ -1,0 +1,7 @@
+node_modules
+.vscode
+
+# Local Netlify folder
+.netlify
+
+functions/api/config/local.js

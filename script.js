@@ -77,7 +77,7 @@ map.addControl(
   }), 'bottom-right'
 )
 
-// Add zoom and rotate controls 
+// Add zoom and rotate controls
 map.addControl(new mapboxgl.NavigationControl(), 'bottom-right');
 
 // convert case
@@ -116,7 +116,7 @@ function closePopups() {
 }
 
 // get the status info for a location using the color as ID
-const getStatus = id => _.find(statusOptions, s => (s.id === id.toLowerCase()))
+const getStatus = id => _.find(statusOptions, s => (s.id === String(id.toLowerCase())))
 
 // create an item for the side pane using a location
 const createListItem = (location, status, lng, lat) => {
@@ -159,7 +159,7 @@ const createListItem = (location, status, lng, lat) => {
 }
 
 // start fetching data right away
-const dataPromise = fetch(DATA_URL)
+const dataPromise = fetch('/.netlify/functions/api/rows?$limit=9999')
 
 // handle the map load event
 const onMapLoad = async () => {
@@ -167,38 +167,38 @@ const onMapLoad = async () => {
   const data = await resp.json()
 
   // filter and transform data from google sheet
-  locations = _.chain(data.feed.entry)
-    .filter(item => (item.gsx$nameoforganization.$t != '') && (item.gsx$longitude.$t != '') && (item.gsx$latitude.$t != '')) // only items with names and lon,lat
-    .sortBy(item => item.gsx$nameoforganization.$t )
+  locations = _.chain(data.data)
+    .filter(item => (item.nameOfOrganization && item.longitude  && item.latitude)) // only items with names and lon,lat
+    .sortBy(item => item.nameOfOrganization )
     .map(item => {
 
       try {
-        const moneySearchStr = `${item.gsx$accepting.$t}, ${item.gsx$urgentneed.$t}, ${item.gsx$notes.$t}`.toLowerCase()
+        const moneySearchStr = `${item.accepting}, ${item.urgentNeed}, ${item.notes}`.toLowerCase()
         const seekingMoney = moneySearchStr.includes('money') || moneySearchStr.includes('cash') || moneySearchStr.includes('venmo') || moneySearchStr.includes('monetary')
         // the location schema
         const rawLocation = {
-          name: item.gsx$nameoforganization.$t,
-          neighborhood: item.gsx$neighborhood.$t,
-          address: item.gsx$addresswithlink.$t,
-          currentlyOpenForDistributing: item.gsx$currentlyopenfordistributing.$t,
-          openingForDistributingDontations: item.gsx$openingfordistributingdonations.$t,
-          closingForDistributingDonations: item.gsx$closingfordistributingdonations.$t,
-          accepting: item.gsx$accepting.$t,
-          notAccepting: item.gsx$notaccepting.$t,
-          currentlyOpenForReceiving: item.gsx$currentlyopenforreceiving.$t,
-          openingForReceivingDontations: item.gsx$openingforreceivingdonations.$t,
-          closingForReceivingDonations: item.gsx$closingforreceivingdonations.$t,
-          seekingVolunteers: item.gsx$seekingvolunteers.$t,
+          name: item.nameOfOrganization,
+          neighborhood: item.neighborhood,
+          address: item.addressWithLink,
+          currentlyOpenForDistributing: item.currentlyOpenForDistributing,
+          openingForDistributingDontations: item.openingForDistributingDonations,
+          closingForDistributingDonations: item.closingForDistributingDonations,
+          accepting: item.accepting,
+          notAccepting: item.notAccepting,
+          currentlyOpenForReceiving: item.currentlyOpenForReceiving,
+          openingForReceivingDontations: item.openingForReceivingDonations,
+          closingForReceivingDonations: item.closingForReceivingDonations,
+          seekingVolunteers: item.seekingVolunteers,
           seekingMoney: seekingMoney,
-          urgentNeed: item.gsx$urgentneed.$t,
-          notes: item.gsx$notes.$t,
-          mostRecentlyUpdatedAt: item.gsx$mostrecentlyupdated.$t
+          urgentNeed: item.urgentNeed,
+          notes: item.notes,
+          mostRecentlyUpdatedAt: item.mostRecentlyUpdated
         }
         const location = _.pickBy(rawLocation, val => val != '')
-        const status = getStatus(item.gsx$color.$t)
+        const status = getStatus(item.color)
 
         if (!status) {
-          throw new Error("Malformed data for " + location.name + ", could not find status: " + item.gsx$color.$t)
+          throw new Error("Malformed data for " + location.name + ", could not find status: " + item.color)
         }
 
         // transform location properties into HTML
@@ -216,14 +216,14 @@ const onMapLoad = async () => {
 
         // create marker
         location.marker = new mapboxgl.Marker({ color: status.accessibleColor })
-          .setLngLat([ parseFloat(item.gsx$longitude.$t), parseFloat(item.gsx$latitude.$t) ])
+          .setLngLat([ parseFloat(item.longitude), parseFloat(item.latitude) ])
           .setPopup(new mapboxgl.Popup().setMaxWidth('275px').setHTML(`<div class='popup-content'>${markerHtml}</div>`))
           .addTo(map);
 
           location.marker.getElement().className += " status-" + status.name;
 
           // add to the side panel
-          $locationList.appendChild(createListItem(location, status, item.gsx$longitude.$, item.gsx$latitude.$))
+          $locationList.appendChild(createListItem(location, status, item.longitude, item.latitude))
 
           return location
         } catch (e) {
